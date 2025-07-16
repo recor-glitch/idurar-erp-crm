@@ -23,6 +23,7 @@ import { DOWNLOAD_BASE_URL } from '@/config/serverApiConfig';
 import { useMoney, useDate } from '@/settings';
 import useMail from '@/hooks/useMail';
 import { useNavigate } from 'react-router-dom';
+import { message, Spin } from 'antd';
 
 const Item = ({ item, currentErp }) => {
   const { moneyFormatter } = useMoney();
@@ -101,6 +102,8 @@ export default function ReadItem({ config, selectedItem }) {
   const [itemslist, setItemsList] = useState([]);
   const [currentErp, setCurrentErp] = useState(selectedItem ?? resetErp);
   const [client, setClient] = useState({});
+  const [summary, setSummary] = useState(selectedItem?.notesSummary || '');
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
     if (currentResult) {
@@ -125,6 +128,33 @@ export default function ReadItem({ config, selectedItem }) {
       setClient(currentErp.client);
     }
   }, [currentErp]);
+
+  useEffect(() => {
+    setSummary(selectedItem?.notesSummary || '');
+  }, [selectedItem]);
+
+  const handleGenerateSummary = async () => {
+    setLoadingSummary(true);
+    try {
+      const res = await fetch(`/api/invoice/notes-summary/${selectedItem._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSummary(data.summary);
+        message.success('Summary generated!');
+      } else {
+        setSummary('');
+        message.info(data.message || 'No notes to summarize.');
+      }
+    } catch (err) {
+      setSummary('');
+      message.error('Failed to generate summary.');
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
 
   return (
     <>
@@ -244,6 +274,24 @@ export default function ReadItem({ config, selectedItem }) {
         <Descriptions.Item label={translate('Phone')}>{client.phone}</Descriptions.Item>
       </Descriptions>
       <Divider />
+      <Row gutter={[12, 12]}>
+        <Col span={24}>
+          <Button onClick={handleGenerateSummary} loading={loadingSummary} type="primary" style={{ marginBottom: 12 }}>
+            Generate Summary
+          </Button>
+          {loadingSummary && <Spin style={{ marginLeft: 12 }} />}
+          {summary ? (
+            <div style={{ background: '#f6f6f6', padding: 12, borderRadius: 6, marginTop: 8 }}>
+              <strong>Summary:</strong>
+              <div style={{ marginTop: 4 }}>{summary}</div>
+            </div>
+          ) : (
+            <div style={{ color: '#888', marginTop: 8 }}>
+              No summary available. Click "Generate Summary" to create one.
+            </div>
+          )}
+        </Col>
+      </Row>
       <Row gutter={[12, 0]}>
         <Col className="gutter-row" span={11}>
           <p>
